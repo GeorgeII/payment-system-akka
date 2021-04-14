@@ -1,9 +1,5 @@
 import akka.actor.{Actor, ActorRef, Props}
-import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.typesafe.config.ConfigFactory
-
-import java.io.File
-import scala.io.{Source => FileSource}
 
 class PaymentsReader extends Actor {
   import PaymentsReader._
