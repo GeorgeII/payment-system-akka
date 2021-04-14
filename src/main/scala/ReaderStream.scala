@@ -1,9 +1,10 @@
+import akka.NotUsed
 import akka.actor.ActorRef
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Flow, RunnableGraph, Sink, Source}
 import com.typesafe.config.ConfigFactory
 
 import java.io.File
-import scala.io.{Source => FileSource}
+import scala.io.{Source => ScalaFileSource}
 
 class ReaderStream {
 
@@ -22,22 +23,31 @@ class ReaderStream {
   }
 
   private def readLinesInFile(file: File): Vector[String] = {
-    val bufferedFileReader = FileSource.fromFile(file)
+    val bufferedFileReader = ScalaFileSource.fromFile(file)
     val lines = bufferedFileReader.getLines.toVector
     bufferedFileReader.close()
 
     lines
   }
 
-  private def buildReadingStream(sinkActor: ActorRef): Unit = {
-    val files = getAllFilesFromFolder
-
-    val sourceFiles = Source(files)
-    val readLinesInFile = Flow[File].map(file => readLinesInFile(file))
+  def buildReadingStream(sinkActor: ActorRef): RunnableGraph[NotUsed] = {
+    import ReaderStream.OnCompleteMessage
+    
+    val sourceFiles = Source(getAllFilesFromFolder)
+    val linesFromFile = Flow[File].map(file => readLinesInFile(file))
     val flattening = Flow[Vector[String]].mapConcat(identity)
-//    val sink = Sink.actorRef(sinkActor)
+    val sink = Sink.actorRef(
+      sinkActor,
+      OnCompleteMessage("The stream has completed successfully")
+    )
 
-    sourceFiles.via(readLinesInFile).via(flattening).to(sink)
+    sourceFiles
+      .via(linesFromFile)
+      .via(flattening)
+      .to(sink)
   }
+}
 
+object ReaderStream {
+  case class OnCompleteMessage(msg: String)
 }
