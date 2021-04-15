@@ -1,26 +1,36 @@
-import akka.actor.{Actor, Props}
+package actors
 
-class PaymentChecker extends Actor {
+import akka.actor.{Actor, ActorLogging, Props}
+
+class PaymentChecker extends Actor with ActorLogging {
   import PaymentChecker._
   import LogIncorrectPayment._
+  import readerStream.ReaderStream.OnCompleteMessage
 
   private val incorrectLoggingActor = context.actorOf(Props[LogIncorrectPayment])
 
   override def receive: Receive = {
     case CheckPayment(payment) =>
-//      if (isValid(payment)) // TODO: createParticipant
-//      else incorrectLoggingActor ! IncorrectPayment(s"The $payment payment is invalid")
+      if (isValid(payment)) sender() ! true// TODO: createParticipant
+      else sender() ! false //incorrectLoggingActor ! IncorrectPayment(s"The $payment payment is invalid")
+
+    case OnCompleteMessage(msg) => log.info(msg)
   }
 
-  private def isValid(payment: String): Boolean = {
-    val namePattern = "[a-zA-Z0-9]".r
-    val valuePattern = "[0-9]".r
-    payment.matches(s"$namePattern->$namePattern:$valuePattern")
+  private[actors] def isValid(payment: String): Boolean = {
+    val namePattern = "[a-zA-Z0-9]+".r
+    val valuePattern = "[0-9]+".r
+    val paymentPattern = s"$namePattern->$namePattern:$valuePattern".r
+    payment.matches(paymentPattern.toString)
+
+    // plan B in case the solution above won't work.
+//    val paymentPattern = """[a-zA-Z0-9]+->[a-zA-Z0-9]+:[0-9]+""".r
+//    paymentPattern.pattern.matcher(payment).matches
 
 
     // idk if Regular Expressions is a bad practice. So, in this case the below code can be used
     // (though, it needs to be tested and validated in a more sophisticated and accurate way
-    // than pattern matching above, e.g. two dashes or two colons can lead to a false positive
+    // than Regexes above, e.g. two dashes or two colons can lead to a false positive
     // error).
 
 //    val endOfFirstParticipant = payment.indexOf("-")
