@@ -1,3 +1,5 @@
+package actors
+
 import akka.actor.{Actor, ActorLogging}
 
 class LogIncorrectPayment extends Actor with ActorLogging {

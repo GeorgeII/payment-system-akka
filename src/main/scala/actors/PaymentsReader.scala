@@ -1,3 +1,5 @@
+package actors
+
 import akka.actor.{Actor, ActorRef, Props}
 import akka.stream.ActorMaterializer
 
