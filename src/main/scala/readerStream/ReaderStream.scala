@@ -41,9 +41,12 @@ object ReaderStream {
    * @return - RunnableGraph that can be run.
    */
   def buildReadingStream(sinkActor: ActorRef): RunnableGraph[NotUsed] = {
+    import actors.PaymentChecker.CheckPayment
+
     val sourceFiles = Source(getAllFilesFromFolder)
     val linesFromFile = Flow[File].map(file => readLinesInFile(file))
     val flattening = Flow[Vector[String]].mapConcat(identity)
+    val messageWrapping = Flow[String].map(payment => CheckPayment(payment))
     val sink = Sink.actorRef(
       sinkActor,
       OnCompleteMessage("The stream has completed successfully")
@@ -52,6 +55,7 @@ object ReaderStream {
     sourceFiles
       .via(linesFromFile).async
       .via(flattening).async
+      .via(messageWrapping).async
       .to(sink)
   }
 }

@@ -17,6 +17,7 @@ class ReaderStreamTest extends TestKit(ActorSystem("ReaderStreamTest"))
   override def afterAll(): Unit = TestKit.shutdownActorSystem(system)
 
   import ReaderStream._
+  import actors.PaymentChecker.CheckPayment
 
   "getAllFilesFromFolder" should {
     "return a vector of all files" in {
@@ -44,6 +45,18 @@ class ReaderStreamTest extends TestKit(ActorSystem("ReaderStreamTest"))
       val graph = buildReadingStream(sinkActor.ref)
       graph.run()
       sinkActor.receiveN(200000, 5.second)
+    }
+
+    "receive messages wrapped in CheckPayment class" in {
+      val sinkActor = TestProbe("sinkActor")
+      val graph = buildReadingStream(sinkActor.ref)
+      graph.run()
+
+      sinkActor.expectMsgAnyClassOf(
+        1.second,
+        classOf[CheckPayment],
+        classOf[OnCompleteMessage]
+      )
     }
 
     "receive a special message at the end when a stream completes successfully" in {
