@@ -1,20 +1,58 @@
 package actors
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 
 class PaymentChecker extends Actor with ActorLogging {
   import PaymentChecker._
   import LogIncorrectPayment._
+  import PaymentParticipant._
   import readerStream.ReaderStream.OnCompleteMessage
 
-  private val incorrectLoggingActor = context.actorOf(Props[LogIncorrectPayment])
+  private val incorrectLoggingActor = context.actorOf(Props[LogIncorrectPayment], "invalidLogger")
 
   override def receive: Receive = {
     case CheckPayment(payment) =>
-      if (isValid(payment)) sender() ! true// TODO: createParticipant
-      else sender() ! false //incorrectLoggingActor ! IncorrectPayment(s"The $payment payment is invalid")
+      if (isValid(payment)) {
+        val (firstParticipant, secondParticipant, value) = extractParticipantsAndValue(payment)
+        val firstParticActor  = searchOrCreateActor(firstParticipant)
+        val secondParticActor = searchOrCreateActor(secondParticipant)
+
+        firstParticActor  ! Payment(Minus, value.toLong, secondParticActor)
+        secondParticActor ! Payment(Plus, value.toLong, firstParticActor)
+
+      }
+      else incorrectLoggingActor ! IncorrectPayment(s"The $payment payment is invalid")
 
     case OnCompleteMessage(msg) => log.info(msg)
+  }
+
+  private[actors] def searchOrCreateActor(actorName: String): ActorRef = {
+    val childActor = context.child(actorName)
+
+    childActor.getOrElse {
+      context.actorOf(Props[PaymentParticipant], name = actorName)
+    }
+  }
+
+  /**
+   * Important: the payment should be valid in terms of syntax.
+   * @param payment - participant1->participant2:value type of string
+   * @return - (participant1, participant2, value)
+   */
+  private[actors] def extractParticipantsAndValue(payment: String): (String, String, String) = {
+    val endOfFirstParticipant = payment.indexOf("-")
+    val firstParticipant = payment.substring(0, endOfFirstParticipant)
+
+    val startOfSecondParticipant = payment.indexOf(">")
+    val endOfSecondParticipant = payment.indexOf(":")
+    val secondParticipant = payment.substring(
+      startOfSecondParticipant + 1,
+      endOfSecondParticipant
+    )
+
+    val value = payment.substring(endOfSecondParticipant + 1)
+
+    (firstParticipant, secondParticipant, value)
   }
 
   private[actors] def isValid(payment: String): Boolean = {
