@@ -2,13 +2,13 @@ package actors
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 
-class PaymentChecker extends Actor with ActorLogging {
+class PaymentChecker(incorrectLoggingActor: ActorRef) extends Actor
+  with ActorLogging {
+
   import PaymentChecker._
   import LogIncorrectPayment._
   import PaymentParticipant._
   import readerStream.ReaderStream.OnCompleteMessage
-
-  private val incorrectLoggingActor = context.actorOf(Props[LogIncorrectPayment], "invalidLogger")
 
   override def receive: Receive = {
     case CheckPayment(payment) =>
@@ -24,6 +24,8 @@ class PaymentChecker extends Actor with ActorLogging {
       else incorrectLoggingActor ! IncorrectPayment(s"The $payment payment is invalid")
 
     case OnCompleteMessage(msg) => log.info(msg)
+
+    case RequestLoggingActor => sender() ! ResponseLoggingActor(incorrectLoggingActor)
   }
 
   private[actors] def searchOrCreateActor(actorName: String): ActorRef = {
@@ -92,4 +94,6 @@ class PaymentChecker extends Actor with ActorLogging {
 
 object PaymentChecker {
   case class CheckPayment(payment: String)
+  case object RequestLoggingActor
+  case class ResponseLoggingActor(logger: ActorRef)
 }
