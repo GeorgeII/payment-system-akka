@@ -7,7 +7,7 @@ class LogIncorrectPayment extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case IncorrectPayment(msg) =>
-      log.warning(s"Incorrect payment: $msg")
+      log.info(s"Incorrect payment: $msg")
   }
 }
 
