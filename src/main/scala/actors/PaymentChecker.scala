@@ -23,9 +23,15 @@ class PaymentChecker(incorrectLoggingActor: ActorRef) extends Actor
       }
       else incorrectLoggingActor ! IncorrectPayment(s"The $payment payment is invalid")
 
-    case OnCompleteMessage(msg) => log.info(msg)
+    case OnCompleteMessage(msg) =>
+      context.become(afterCompletion)
+      log.info(msg)
 
-    case RequestLoggingActor => sender() ! ResponseLoggingActor(incorrectLoggingActor)
+    case RequestIsCompleted => sender() ! ResponseIsCompleted(false)
+  }
+
+  def afterCompletion: Receive = {
+    case RequestIsCompleted => sender() ! ResponseIsCompleted(true)
   }
 
   private[actors] def searchOrCreateActor(actorName: String): ActorRef = {
@@ -94,6 +100,6 @@ class PaymentChecker(incorrectLoggingActor: ActorRef) extends Actor
 
 object PaymentChecker {
   case class CheckPayment(payment: String)
-  case object RequestLoggingActor
-  case class ResponseLoggingActor(logger: ActorRef)
+  case object RequestIsCompleted
+  case class ResponseIsCompleted(bool: Boolean)
 }
